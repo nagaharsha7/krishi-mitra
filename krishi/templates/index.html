@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="te"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>కృషి మిత్ర – Krishi Mitra</title>
+<style>
+*{box-sizing:border-box}body{font-family:system-ui,"Noto Sans Telugu",sans-serif;margin:0;background:#f3f8f1;color:#1d2b1d}
+header{background:#2e7d32;color:#fff;padding:14px 18px}header h1{margin:0;font-size:22px}header small{opacity:.85}
+.tabs{display:flex;gap:6px;padding:10px 14px;background:#e3efe0}
+.tabs button{flex:1;padding:10px;border:0;border-radius:8px;background:#fff;font-size:15px;cursor:pointer}
+.tabs button.on{background:#2e7d32;color:#fff}
+main{max-width:760px;margin:0 auto;padding:14px}section{display:none}section.on{display:block}
+#log{background:#fff;border-radius:10px;padding:10px;min-height:260px;max-height:55vh;overflow:auto}
+.m{margin:8px 0;padding:8px 12px;border-radius:10px;white-space:pre-wrap;max-width:88%}
+.u{background:#c8e6c9;margin-left:auto}.b{background:#eef3ec}.e{background:#ffebee;color:#b71c1c}
+.row{display:flex;gap:8px;margin-top:8px}input,select,button.go{padding:10px;font-size:15px;border:1px solid #9bbf9b;border-radius:8px}
+.row input{flex:1}button.go{background:#2e7d32;color:#fff;border:0;cursor:pointer}
+.card{background:#fff;border-radius:10px;padding:12px;margin:10px 0;border-left:5px solid #2e7d32}
+.card a{color:#1565c0}#cres{white-space:pre-wrap;background:#fff;border-radius:10px;padding:12px;margin-top:10px}
+img#prev{max-width:100%;max-height:260px;margin-top:10px;border-radius:10px}
+</style></head><body>
+<header><h1>🌾 కృషి మిత్ర / Krishi Mitra</h1><small>Model: {{ model }}{% if demo %} · DEMO MODE{% endif %}</small></header>
+<div class="tabs">
+<button class="on" data-t="chat">💬 చాట్</button>
+<button data-t="crop">🔬 పంట డాక్టర్</button>
+<button data-t="sch">📋 పథకాలు</button></div>
+<main>
+<section id="chat" class="on"><div id="log"></div>
+<div class="row"><input id="q" placeholder="మీ ప్రశ్న రాయండి… / Ask in Telugu or English"><button class="go" id="send">పంపు</button></div></section>
+
+<section id="crop"><p>పంట ఆకు/మొక్క ఫోటో ఎంచుకోండి (JPG/PNG/WEBP, 5MB లోపు)</p>
+<input type="file" id="img" accept="image/jpeg,image/png,image/webp"><br><img id="prev" hidden>
+<div class="row"><button class="go" id="diag">పరిశీలించు</button></div><div id="cres" hidden></div></section>
+
+<section id="sch"><div class="row">
+<select id="state"><option value="">రాష్ట్రం (అన్నీ)</option><option>Telangana</option><option>Andhra Pradesh</option><option>Karnataka</option><option>Tamil Nadu</option><option>Maharashtra</option></select>
+<select id="ft"><option value="">రైతు రకం</option><option value="owner">భూ యజమాని</option><option value="tenant">కౌలు రైతు</option></select>
+<input id="acres" type="number" step="0.1" min="0" placeholder="ఎకరాలు"></div>
+<div class="row"><button class="go" id="find">పథకాలు చూపించు</button></div><div id="sres"></div></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);let history=[];
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('.tabs button,section').forEach(x=>x.classList.remove('on'));
+ b.classList.add('on');$('#'+b.dataset.t).classList.add('on')});
+function add(t,c){const d=document.createElement('div');d.className='m '+c;d.textContent=t;$('#log').append(d);$('#log').scrollTop=1e9}
+async function post(url,opt){try{const r=await fetch(url,opt);return await r.json()}catch(e){return{ok:false,message:"సర్వర్‌కు కనెక్ట్ కాలేదు.\nCannot reach the server."}}}
+async function send(){const m=$('#q').value.trim();if(!m)return;$('#q').value='';add(m,'u');
+ const d=await post('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:m,history})});
+ if(d.ok){add(d.reply,'b');history.push({role:'user',text:m},{role:'model',text:d.reply})}else add(d.message,'e')}
+$('#send').onclick=send;$('#q').onkeydown=e=>{if(e.key==='Enter')send()};
+$('#img').onchange=e=>{const f=e.target.files[0];if(f){$('#prev').src=URL.createObjectURL(f);$('#prev').hidden=false}};
+$('#diag').onclick=async()=>{const f=$('#img').files[0];const o=$('#cres');o.hidden=false;
+ if(!f){o.textContent='దయచేసి ఫోటో ఎంచుకోండి.\nPlease choose a photo.';return}
+ o.textContent='పరిశీలిస్తున్నాను… / Analysing…';const fd=new FormData();fd.append('image',f);
+ const d=await post('/api/crop-doctor',{method:'POST',body:fd});o.textContent=d.ok?d.reply:d.message};
+$('#find').onclick=async()=>{const d=await post('/api/schemes',{method:'POST',headers:{'Content-Type':'application/json'},
+ body:JSON.stringify({state:$('#state').value,farmer_type:$('#ft').value,acres:$('#acres').value})});
+ const o=$('#sres');o.innerHTML='';if(!d.ok){o.textContent=d.message;return}
+ d.schemes.forEach(s=>{const c=document.createElement('div');c.className='card';
+  c.innerHTML=`<b></b><div></div><div></div><a target=_blank rel=noopener>అధికారిక సైట్ / Official site</a>`;
+  c.children[0].textContent=s.name_te+' · '+s.name_en;c.children[1].textContent=s.benefit_te;c.children[2].textContent=s.benefit_en;c.children[3].href=s.link;o.append(c)});
+ const n=document.createElement('p');n.textContent=d.note;o.append(n)};
+</script></body></html>
